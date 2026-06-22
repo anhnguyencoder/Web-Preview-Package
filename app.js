@@ -1,4 +1,4 @@
-﻿const DATA_URL = "./data/packages.json";
+const DATA_URL = "./data/packages.json";
 
 const metaInfoEl = document.getElementById("metaInfo");
 const searchInputEl = document.getElementById("searchInput");
@@ -121,6 +121,30 @@ function getUnityPreviewUrl(item) {
         item.fallbackSearchUrl ||
         ""
     );
+}
+
+function getThumbnail(item) {
+    if (!item || typeof item !== "object") {
+        return "";
+    }
+    if (item.assetStoreThumbnail) {
+        return item.assetStoreThumbnail;
+    }
+    if (Array.isArray(item.topCandidates)) {
+        for (const candidate of item.topCandidates) {
+            if (candidate.thumbnail) {
+                return candidate.thumbnail;
+            }
+        }
+    }
+    if (Array.isArray(item.topAssetStoreCandidates)) {
+        for (const candidate of item.topAssetStoreCandidates) {
+            if (candidate.thumbnail) {
+                return candidate.thumbnail;
+            }
+        }
+    }
+    return "";
 }
 
 function setOpenExternalLink(url) {
@@ -663,26 +687,19 @@ function renderList() {
 
     packageListEl.innerHTML = state.filtered
         .map((item, index) => {
-            const url = getOpenUrl(item) || "#";
             const itemKey = getItemKey(item);
             const isActive = itemKey && itemKey === selectedKey ? "active" : "";
-            const badgeClass = escapeHtml(item.confidence || "none");
-            const score = typeof item.score === "number" ? item.score.toFixed(1) : "0.0";
-            const source = `${sourceLabel(item.sourceType)} (${item.sourceCount || 1})`;
+            const thumbnailSrc = getThumbnail(item);
+            const imageHtml = thumbnailSrc
+                ? `<img class="package-thumbnail" src="${escapeHtml(thumbnailSrc)}" alt="${escapeHtml(item.name)}" loading="lazy" />`
+                : `<div class="package-thumbnail placeholder">No Image</div>`;
 
             return `
                 <article class="package-card ${isActive}" data-idx="${index}">
-                    <h3 class="package-title">${escapeHtml(item.name || "(no name)")}</h3>
-                    <p class="package-sub">
-                        <span class="badge ${badgeClass}">${escapeHtml(confidenceLabel(item.confidence))}</span>
-                        &nbsp;score: ${escapeHtml(score)}
-                    </p>
-                    <p class="package-sub">Nguon: ${escapeHtml(source)}</p>
-                    <p class="package-sub">${escapeHtml(item.bestArticleTitle || "Chua co tieu de bai")}</p>
-                    <div class="card-actions">
-                        <a class="primary open-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Mo link chinh xac</a>
-                        <button class="copy-path" type="button">Copy duong dan</button>
+                    <div class="thumbnail-container">
+                        ${imageHtml}
                     </div>
+                    <h3 class="package-title" title="${escapeHtml(item.name || "(no name)")}">${escapeHtml(item.name || "(no name)")}</h3>
                 </article>
             `;
         })
@@ -696,21 +713,8 @@ function renderList() {
             return;
         }
 
-        card.addEventListener("click", (event) => {
-            if (event.target.closest("a, button")) {
-                return;
-            }
+        card.addEventListener("click", () => {
             setPreview(item);
-        });
-
-        card.querySelector(".open-link")?.addEventListener("click", () => {
-            setPreview(item, { rerender: false });
-        });
-
-        card.querySelector(".copy-path")?.addEventListener("click", (event) => {
-            event.stopPropagation();
-            const pathToCopy = item.primaryPath || item.folderPath || (Array.isArray(item.sourcePaths) ? item.sourcePaths[0] : "");
-            copyText(pathToCopy);
         });
     });
 }

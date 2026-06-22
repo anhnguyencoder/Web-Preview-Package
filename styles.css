@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     --bg-1: #071d2f;
     --bg-2: #0c2e3f;
     --panel: rgba(5, 15, 25, 0.72);
@@ -180,93 +180,110 @@ button {
 
 .package-list {
     margin-top: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
     flex: 1;
     min-height: 0;
-    overflow: auto;
-    padding-right: 4px;
+    overflow-y: auto;
+    padding: 4px;
+}
+
+.package-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.package-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.package-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 99px;
+}
+
+.package-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.24);
 }
 
 .package-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 12px;
-    padding: 10px;
+    padding: 8px;
     background: rgba(2, 10, 20, 0.56);
-    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+                border-color 0.2s ease, 
+                box-shadow 0.2s ease, 
+                background-color 0.2s ease;
     cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    min-height: 136px;
 }
 
 .package-card:hover {
-    transform: translateY(-1px);
-    border-color: rgba(255, 255, 255, 0.34);
+    transform: translateY(-3px);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 12px rgba(111, 230, 201, 0.1);
+    background: rgba(4, 18, 36, 0.72);
 }
 
 .package-card.active {
     border-color: var(--accent);
-    background: rgba(255, 169, 90, 0.12);
+    background: rgba(255, 169, 90, 0.15);
+    box-shadow: 0 8px 24px rgba(255, 169, 90, 0.15), inset 0 0 0 1px rgba(255, 169, 90, 0.2);
+}
+
+.thumbnail-container {
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    flex-shrink: 0;
+}
+
+.package-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.package-card:hover .package-thumbnail {
+    transform: scale(1.05);
+}
+
+.package-thumbnail.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.08) 100%);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    height: 100%;
 }
 
 .package-title {
     margin: 0;
-    font-size: 14px;
-}
-
-.package-sub {
-    margin: 5px 0;
-    color: var(--muted);
-    font-size: 11px;
-}
-
-.badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-family: "IBM Plex Mono", monospace;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-}
-
-.badge.high {
-    color: var(--high);
-    border-color: rgba(111, 230, 201, 0.6);
-}
-
-.badge.medium {
-    color: var(--medium);
-    border-color: rgba(255, 207, 125, 0.55);
-}
-
-.badge.low,
-.badge.none {
-    color: var(--low);
-    border-color: rgba(255, 143, 143, 0.55);
-}
-
-.card-actions {
-    margin-top: 8px;
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.card-actions a,
-.card-actions button {
-    border-radius: 8px;
-    padding: 5px 8px;
-    font-size: 10px;
-    text-decoration: none;
-    border: 1px solid rgba(255, 255, 255, 0.24);
+    font-size: 12px;
+    font-weight: 500;
     color: var(--text);
-    background: rgba(255, 255, 255, 0.06);
-    cursor: pointer;
-}
-
-.card-actions a.primary {
-    border-color: rgba(255, 169, 90, 0.8);
-    background: rgba(255, 169, 90, 0.2);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    word-break: break-word;
+    flex-grow: 1;
 }
 
 .preview-panel {
