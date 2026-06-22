@@ -1,0 +1,49 @@
+﻿{
+    "totalCount":  0,
+    "totalCountFiltered":  0,
+    "duration":  9,
+    "indexDuration":  4,
+    "requestDuration":  8,
+    "searchUid":  "b6d2fd0d-3621-4813-a11c-71fd0868b7a7",
+    "pipeline":  "No Content",
+    "apiVersion":  2,
+    "queryCorrections":  [
+
+                         ],
+    "index":  "unitytechnologiesproductionmkahteav-hdrhb4eu-Indexer-6-x7hmnlborsg6i2btyot7bcskyu",
+    "logicalIndex":  "default",
+    "indexRegion":  "us-east-2",
+    "indexToken":  "dW5pdHl0ZWNobm9sb2dpZXNwcm9kdWN0aW9ubWthaHRlYXYtaGRyaGI0ZXUtSW5kZXhlci02LXg3aG1ubGJvcnNnNmkyYnR5b3Q3YmNza3l1",
+    "refinedKeywords":  [
+
+                        ],
+    "triggers":  [
+
+                 ],
+    "termsToHighlight":  {
+                             "allsky":  [
+
+                                        ]
+                         },
+    "phrasesToHighlight":  {
+
+                           },
+    "groupByResults":  [
+
+                       ],
+    "facets":  [
+
+               ],
+    "suggestedFacets":  [
+
+                        ],
+    "categoryFacets":  [
+
+                       ],
+    "results":  [
+
+                ],
+    "extendedResults":  {
+
+                        }
+}

@@ -1,0 +1,61 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web Preview Package</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+    <div class="bg-layer" aria-hidden="true"></div>
+
+    <main class="shell">
+        <section class="split">
+            <div class="left-column">
+                <header class="hero panel">
+                    <p class="eyebrow">Unity Asset Toolkit</p>
+                    <h1>Web Preview Package</h1>
+                    <p class="summary">
+                        Tu quet package trong muc Assets, tu map link bai tuong ung va mo link chinh xac nhat.
+                    </p>
+
+                    <div id="libraryTabs" class="tabs" aria-label="Library tabs"></div>
+
+                    <div class="toolbar">
+                        <input id="searchInput" type="search" placeholder="Loc theo ten package..." autocomplete="off" />
+                        <button id="reloadBtn" type="button">Tai lai du lieu</button>
+                    </div>
+
+                    <p id="metaInfo" class="meta">Dang tai du lieu...</p>
+                </header>
+
+                <div class="panel list-panel">
+                    <h2 id="listTitle">Danh sach package</h2>
+                    <div id="packageList" class="package-list"></div>
+                </div>
+            </div>
+
+            <div class="panel preview-panel">
+                <div class="preview-head">
+                    <div class="preview-title-group">
+                        <h2>Preview bai</h2>
+                        <div id="previewSourceTabs" class="preview-source-tabs" aria-label="Preview source">
+                            <button class="preview-source-btn active" type="button" data-source="assetstore">Unity Asset Store</button>
+                            <button class="preview-source-btn" type="button" data-source="unitycollection">unityassetcollection</button>
+                        </div>
+                    </div>
+                    <a id="openExternalLink" class="disabled-link" href="#" target="_blank" rel="noopener noreferrer">Mo tab moi</a>
+                </div>
+                <iframe id="previewFrame" title="Package article preview" loading="lazy" src="about:blank"></iframe>
+                <p id="previewHint" class="meta">Chon package de xem bai trong khung nhung.</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="./data/packages.js"></script>
+    <script src="./app.js" defer></script>
+</body>
+</html>
