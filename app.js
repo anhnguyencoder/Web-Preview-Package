@@ -756,6 +756,20 @@ function setPreview(item, options = {}) {
         renderList();
         renderTabs();
         renderPreviewSourceTabs();
+    } else {
+        if (packageListEl) {
+            const cards = packageListEl.querySelectorAll(".package-card");
+            const activeKey = getItemKey(item);
+            cards.forEach((card) => {
+                const cardIdx = Number(card.getAttribute("data-idx"));
+                const cardItem = state.filtered[cardIdx];
+                if (cardItem) {
+                    const isCardActive = getItemKey(cardItem) === activeKey;
+                    card.classList.toggle("active", isCardActive);
+                }
+            });
+        }
+        renderPreviewSourceTabs();
     }
 }
 
@@ -821,7 +835,7 @@ function renderList() {
         }
 
         card.addEventListener("click", () => {
-            setPreview(item);
+            setPreview(item, { rerender: false });
         });
     });
 }
