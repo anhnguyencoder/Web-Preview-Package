@@ -7,9 +7,11 @@ const packageListEl = document.getElementById("packageList");
 const previewFrameEl = document.getElementById("previewFrame");
 const previewHintEl = document.getElementById("previewHint");
 const openExternalLinkEl = document.getElementById("openExternalLink");
+const openFileLocationEl = document.getElementById("openFileLocation");
 const libraryTabsEl = document.getElementById("libraryTabs");
 const listTitleEl = document.getElementById("listTitle");
 const previewSourceTabsEl = document.getElementById("previewSourceTabs");
+const browserUrlTextEl = document.getElementById("browserUrlText");
 
 const state = {
     generatedAt: "",
@@ -32,26 +34,26 @@ function escapeHtml(text) {
 function confidenceLabel(confidence) {
     switch (confidence) {
         case "high":
-            return "Chinh xac cao";
+            return "Chính xác cao";
         case "medium":
-            return "Kha khop";
+            return "Khá khớp";
         case "low":
-            return "Can kiem tra";
+            return "Cần kiểm tra";
         default:
-            return "Chua co link";
+            return "Chưa có link";
     }
 }
 
 function sourceLabel(sourceType) {
     switch (sourceType) {
         case "mixed":
-            return "folder + file nen";
+            return "folder + file nén";
         case "folder":
             return "folder";
         case "archive":
-            return "file nen";
+            return "file nén";
         default:
-            return "khong ro";
+            return "không rõ";
     }
 }
 
@@ -127,6 +129,13 @@ function getThumbnail(item) {
     if (!item || typeof item !== "object") {
         return "";
     }
+    if (Array.isArray(item.topUnityCandidates)) {
+        for (const candidate of item.topUnityCandidates) {
+            if (candidate.thumbnail) {
+                return candidate.thumbnail;
+            }
+        }
+    }
     if (item.assetStoreThumbnail) {
         return item.assetStoreThumbnail;
     }
@@ -158,40 +167,94 @@ function setOpenExternalLink(url) {
     openExternalLinkEl.classList.remove("disabled-link");
 }
 
+function updateFileLocationButton(item) {
+    if (!openFileLocationEl) {
+        return;
+    }
+    const path = item ? (item.primaryPath || item.folderPath || (Array.isArray(item.sourcePaths) && item.sourcePaths[0]) || "") : "";
+    if (!path) {
+        openFileLocationEl.classList.add("disabled-link");
+        return;
+    }
+    openFileLocationEl.classList.remove("disabled-link");
+}
+
+function showToast(message) {
+    let toast = document.getElementById("toast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "toast";
+        toast.className = "toast";
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add("show");
+    setTimeout(() => {
+        toast.classList.remove("show");
+    }, 2500);
+}
+
+async function handleOpenFileLocation() {
+    const item = getSelectedItemFromCurrentFilter();
+    if (!item) {
+        return;
+    }
+
+    const path = item.primaryPath || item.folderPath || (Array.isArray(item.sourcePaths) && item.sourcePaths[0]) || "";
+    if (!path) {
+        showToast("Không tìm thấy đường dẫn cho mục này.");
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(path);
+        showToast("✓ Đã copy đường dẫn");
+    } catch (e) {
+        // Fallback for browsers that block clipboard API
+        window.prompt("Copy đường dẫn:", path);
+    }
+}
+
 function setFrameUrl(url) {
     previewFrameEl.removeAttribute("srcdoc");
     previewFrameEl.src = url;
+    if (browserUrlTextEl) {
+        browserUrlTextEl.textContent = url;
+    }
 }
 
 function setFrameDoc(doc) {
     previewFrameEl.srcdoc = doc;
+    if (browserUrlTextEl) {
+        browserUrlTextEl.textContent = "data:text/html;custom-preview-summary";
+    }
 }
 
 function formatAssetStorePrice(item) {
     const promo = String(item?.assetStorePromoPrice ?? "").trim();
     const normal = String(item?.assetStorePrice ?? "").trim();
     if (promo) {
-        return normal ? `$${promo} (sale, goc $${normal})` : `$${promo}`;
+        return normal ? `$${promo} (giảm giá, gốc $${normal})` : `$${promo}`;
     }
     if (normal) {
         return `$${normal}`;
     }
-    return "Khong ro";
+    return "Không rõ";
 }
 
 function buildAssetStorePreviewDoc(item, assetStoreUrl, unityPreviewUrl) {
     const title = escapeHtml(item.assetStoreBestTitle || item.displayName || item.name || "Unity Asset Store");
-    const publisher = escapeHtml(item.assetStorePublisher || "Khong ro");
-    const category = escapeHtml(item.assetStoreCategory || "Khong ro");
-    const rating = escapeHtml(String(item.assetStoreRating || "Khong ro"));
+    const publisher = escapeHtml(item.assetStorePublisher || "Không rõ");
+    const category = escapeHtml(item.assetStoreCategory || "Không rõ");
+    const rating = escapeHtml(String(item.assetStoreRating || "Không rõ"));
     const ratingCount = escapeHtml(String(item.assetStoreRatingCount || "0"));
-    const minUnityVersion = escapeHtml(String(item.assetStoreMinUnityVersion || "Khong ro"));
-    const description = escapeHtml(item.assetStoreShortDescription || item.assetStoreDescription || "Khong lay duoc mo ta tu Asset Store.");
+    const minUnityVersion = escapeHtml(String(item.assetStoreMinUnityVersion || "Không rõ"));
+    const description = escapeHtml(item.assetStoreShortDescription || item.assetStoreDescription || "Không lấy được mô tả từ Asset Store.");
     const thumbnail = String(item.assetStoreThumbnail || "").trim();
     const safeAssetStoreUrl = escapeHtml(assetStoreUrl);
     const safeUnityPreviewUrl = unityPreviewUrl ? escapeHtml(unityPreviewUrl) : "";
     const fallbackLink = unityPreviewUrl
-        ? `<a class="ghost" href="${safeUnityPreviewUrl}" target="_top" rel="noopener noreferrer">Mo preview unityassetcollection</a>`
+        ? `<a class="ghost" href="${safeUnityPreviewUrl}" target="_blank" rel="noopener noreferrer">Mở preview unityassetcollection</a>`
         : "";
     const imageHtml = thumbnail
         ? `<img src="${escapeHtml(thumbnail)}" alt="${title}" loading="lazy" />`
@@ -300,30 +363,30 @@ function buildAssetStorePreviewDoc(item, assetStoreUrl, unityPreviewUrl) {
                 <h1>${title}</h1>
                 <p class="meta">Publisher: ${publisher}</p>
                 <p class="meta">Category: ${category}</p>
-                <p class="meta">Gia: ${escapeHtml(formatAssetStorePrice(item))} | Rating: ${rating} (${ratingCount})</p>
+                <p class="meta">Giá: ${escapeHtml(formatAssetStorePrice(item))} | Đánh giá: ${rating} (${ratingCount})</p>
                 <p class="meta">Min Unity: ${minUnityVersion}</p>
                 <p class="description">${description}</p>
                 <div class="actions">
-                    <a class="primary" href="${safeAssetStoreUrl}" target="_top" rel="noopener noreferrer">Mo trang Unity Asset Store</a>
+                    <a class="primary" href="${safeAssetStoreUrl}" target="_blank" rel="noopener noreferrer">Mở trang Unity Asset Store</a>
                     ${fallbackLink}
                 </div>
             </div>
         </div>
-        <div class="notice">Asset Store khong cho nhung iframe tu domain ngoai (CSP frame-ancestors), nen preview o day la du lieu chinh chu da tom tat.</div>
+        <div class="notice">Asset Store không cho nhúng iframe từ domain ngoài (CSP frame-ancestors), nên preview ở đây là dữ liệu chính chủ đã tóm tắt.</div>
     </section>
 </body>
 </html>`;
 }
 
 function buildSourceNoticePreviewDoc(options = {}) {
-    const title = escapeHtml(options.title || "Khong co preview");
-    const message = escapeHtml(options.message || "Khong co du lieu preview cho lua chon nay.");
+    const title = escapeHtml(options.title || "Không có preview");
+    const message = escapeHtml(options.message || "Không có dữ liệu preview cho lựa chọn này.");
     const primaryUrl = String(options.primaryUrl || "").trim();
-    const primaryLabel = escapeHtml(options.primaryLabel || "Mo link");
+    const primaryLabel = escapeHtml(options.primaryLabel || "Mở link");
     const secondaryUrl = String(options.secondaryUrl || "").trim();
-    const secondaryLabel = escapeHtml(options.secondaryLabel || "Mo link phu");
-    const primaryAction = primaryUrl ? `<a class="primary" href="${escapeHtml(primaryUrl)}" target="_top" rel="noopener noreferrer">${primaryLabel}</a>` : "";
-    const secondaryAction = secondaryUrl ? `<a class="ghost" href="${escapeHtml(secondaryUrl)}" target="_top" rel="noopener noreferrer">${secondaryLabel}</a>` : "";
+    const secondaryLabel = escapeHtml(options.secondaryLabel || "Mở link phụ");
+    const primaryAction = primaryUrl ? `<a class="primary" href="${escapeHtml(primaryUrl)}" target="_blank" rel="noopener noreferrer">${primaryLabel}</a>` : "";
+    const secondaryAction = secondaryUrl ? `<a class="ghost" href="${escapeHtml(secondaryUrl)}" target="_blank" rel="noopener noreferrer">${secondaryLabel}</a>` : "";
 
     return `<!doctype html>
 <html lang="vi">
@@ -398,7 +461,7 @@ function buildSourceNoticePreviewDoc(options = {}) {
 
 function formatDate(dateText) {
     if (!dateText) {
-        return "khong ro";
+        return "không rõ";
     }
     const date = new Date(dateText);
     if (Number.isNaN(date.getTime())) {
@@ -455,7 +518,10 @@ function renderTabs() {
     libraryTabsEl.innerHTML = state.libraries
         .map((library) => {
             const isActive = library.id === state.activeLibraryId;
-            return `<button class="tab-btn ${isActive ? "active" : ""}" type="button" data-lib="${escapeHtml(library.id)}">${escapeHtml(library.label)}</button>`;
+            const eyeIcon = isActive 
+                ? `<svg class="icon-eye" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>` 
+                : "";
+            return `<button class="tab-btn ${isActive ? "active" : ""}" type="button" data-lib="${escapeHtml(library.id)}">${eyeIcon}${escapeHtml(library.label)}</button>`;
         })
         .join("");
 
@@ -480,12 +546,16 @@ function renderPreviewSourceTabs() {
         const source = buttonEl.getAttribute("data-source") || "";
         const isActive = source === state.previewSource;
         const label = (buttonEl.getAttribute("data-label") || buttonEl.textContent || "")
-            .replace(/\s*\[dang xem\]\s*$/i, "")
+            .replace(/\s*\[(?:dang|đang) xem\]\s*$/i, "")
             .trim();
         buttonEl.setAttribute("data-label", label);
         buttonEl.classList.toggle("active", isActive);
         buttonEl.setAttribute("aria-pressed", isActive ? "true" : "false");
-        buttonEl.textContent = isActive ? `${label} [dang xem]` : label;
+
+        const eyeIcon = isActive 
+            ? `<svg class="icon-eye" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>` 
+            : "";
+        buttonEl.innerHTML = `${eyeIcon}${escapeHtml(label)}`;
     });
 }
 
@@ -507,8 +577,14 @@ function updateMetaInfo() {
 
     const total = state.libraries.reduce((sum, lib) => sum + (Array.isArray(lib.packages) ? lib.packages.length : 0), 0);
     const counts = state.libraries.map((lib) => `${lib.label}: ${Array.isArray(lib.packages) ? lib.packages.length : 0}`).join(" | ");
-    const rootInfo = active.root ? ` | Root: ${active.root}` : "";
-    metaInfoEl.textContent = `Da nap ${total} item (${counts}). Dang xem ${active.label}: ${active.totalPackages} item${rootInfo}. Cap nhat luc ${formatDate(state.generatedAt)} (ICT).`;
+    const rootInfo = active.root ? `<div class="meta-line"><strong>Thư mục gốc:</strong> ${escapeHtml(active.root)}</div>` : "";
+
+    metaInfoEl.innerHTML = `
+        <div class="meta-line"><strong>Đã nạp:</strong> ${total} item (${counts})</div>
+        <div class="meta-line"><strong>Đang xem:</strong> ${active.label} (${active.totalPackages} item)</div>
+        ${rootInfo}
+        <div class="meta-line"><strong>Cập nhật lúc:</strong> ${formatDate(state.generatedAt)} (ICT)</div>
+    `;
 }
 
 function clearPreview(message) {
@@ -516,18 +592,34 @@ function clearPreview(message) {
     previewFrameEl.src = "about:blank";
     previewHintEl.textContent = message;
     setOpenExternalLink("");
+    updateFileLocationButton(null);
+    if (browserUrlTextEl) {
+        browserUrlTextEl.textContent = "about:blank";
+    }
 }
 
 async function loadData() {
-    metaInfoEl.textContent = "Dang tai du lieu...";
+    metaInfoEl.innerHTML = "<div>Đang tải dữ liệu...</div>";
     try {
-        let data = window.PACKAGE_DATA;
-        if (!data || (!Array.isArray(data.packages) && !Array.isArray(data.libraries))) {
+        let data = null;
+        
+        // Try to fetch packages.json first (bypasses browser caching when served over HTTP)
+        try {
             const response = await fetch(`${DATA_URL}?v=${Date.now()}`, { cache: "no-store" });
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+            if (response.ok) {
+                data = await response.json();
             }
-            data = await response.json();
+        } catch (fetchError) {
+            console.warn("Could not fetch packages.json dynamically (normal if using file:///):", fetchError);
+        }
+
+        // Fallback to static script data if fetch failed
+        if (!data) {
+            data = window.PACKAGE_DATA;
+        }
+
+        if (!data || (!Array.isArray(data.packages) && !Array.isArray(data.libraries))) {
+            throw new Error("No package data available.");
         }
 
         state.generatedAt = data.generatedAt ?? "";
@@ -542,9 +634,9 @@ async function loadData() {
         applyFilter();
         updateMetaInfo();
     } catch (error) {
-        metaInfoEl.textContent = `Khong doc duoc ${DATA_URL}. Chay generate-links.ps1 roi tai lai.`;
+        metaInfoEl.innerHTML = `<div>Không đọc được ${DATA_URL}. Chạy generate-links.ps1 rồi tải lại.</div>`;
         packageListEl.innerHTML = `<div class="empty">${escapeHtml(String(error.message || error))}</div>`;
-        clearPreview("Khong tai duoc du lieu preview.");
+        clearPreview("Không tải được dữ liệu preview.");
         if (libraryTabsEl) {
             libraryTabsEl.innerHTML = "";
         }
@@ -558,7 +650,7 @@ function applyFilter() {
         renderTabs();
         renderPreviewSourceTabs();
         renderList();
-        clearPreview("Khong co du lieu de hien thi.");
+        clearPreview("Không có dữ liệu để hiển thị.");
         return;
     }
 
@@ -585,7 +677,7 @@ function applyFilter() {
         renderTabs();
         renderPreviewSourceTabs();
         renderList();
-        clearPreview("Khong co pack khop bo loc trong tab nay.");
+        clearPreview("Không có pack khớp bộ lọc trong tab này.");
         return;
     }
 
@@ -603,7 +695,7 @@ function applyFilter() {
 function setPreview(item, options = {}) {
     const { rerender = true } = options;
     if (!item || typeof item !== "object") {
-        clearPreview("Khong co package de preview.");
+        clearPreview("Không có package để preview.");
         return;
     }
 
@@ -616,45 +708,47 @@ function setPreview(item, options = {}) {
         state.selectedByLibrary[activeLibrary.id] = getItemKey(item);
     }
 
+    updateFileLocationButton(item);
+
     if (state.previewSource === "assetstore") {
         if (assetStorePreviewUrl) {
             setFrameDoc(buildAssetStorePreviewDoc(item, assetStorePreviewUrl, unityPreviewUrl));
-            previewHintEl.textContent = "Nguon preview: Unity Asset Store (native).";
+            previewHintEl.textContent = "Nguồn preview: Unity Asset Store (gốc).";
             setOpenExternalLink(assetStorePreviewUrl);
         } else if (assetStoreSearchUrl) {
             setFrameDoc(buildSourceNoticePreviewDoc({
                 title: item.displayName || item.name || "Unity Asset Store",
-                message: "Khong tim thay link package direct tren Asset Store cho item nay. Ban co the mo trang search de xac nhan nhanh.",
-                primaryLabel: "Mo Unity Asset Store Search",
+                message: "Không tìm thấy link package trực tiếp trên Asset Store cho item này. Bạn có thể mở trang tìm kiếm để xác nhận nhanh.",
+                primaryLabel: "Mở Unity Asset Store Search",
                 primaryUrl: assetStoreSearchUrl,
-                secondaryLabel: unityPreviewUrl ? "Mo preview unityassetcollection" : "",
+                secondaryLabel: unityPreviewUrl ? "Mở preview unityassetcollection" : "",
                 secondaryUrl: unityPreviewUrl || ""
             }));
-            previewHintEl.textContent = "Nguon preview: Unity Asset Store (search fallback).";
+            previewHintEl.textContent = "Nguồn preview: Unity Asset Store (tìm kiếm thay thế).";
             setOpenExternalLink(assetStoreSearchUrl);
         } else {
             setFrameDoc(buildSourceNoticePreviewDoc({
                 title: item.displayName || item.name || "Unity Asset Store",
-                message: "Item nay chua co du lieu tu Unity Asset Store.",
-                primaryLabel: unityPreviewUrl ? "Mo unityassetcollection" : "",
+                message: "Item này chưa có dữ liệu từ Unity Asset Store.",
+                primaryLabel: unityPreviewUrl ? "Mở unityassetcollection" : "",
                 primaryUrl: unityPreviewUrl || ""
             }));
-            previewHintEl.textContent = "Khong co du lieu Asset Store cho item nay.";
+            previewHintEl.textContent = "Không có dữ liệu Asset Store cho item này.";
             setOpenExternalLink(unityPreviewUrl || "");
         }
     } else if (unityPreviewUrl) {
         setFrameUrl(unityPreviewUrl);
-        previewHintEl.textContent = `Nguon preview: unityassetcollection (${item.bestArticleTitle || item.name}).`;
+        previewHintEl.textContent = `Nguồn preview: unityassetcollection (${item.bestArticleTitle || item.name}).`;
         setOpenExternalLink(unityPreviewUrl);
     } else {
         const fallbackUrl = assetStorePreviewUrl || assetStoreSearchUrl;
         setFrameDoc(buildSourceNoticePreviewDoc({
             title: item.displayName || item.name || "unityassetcollection",
-            message: "Item nay khong co link preview unityassetcollection.",
-            primaryLabel: fallbackUrl ? "Mo Unity Asset Store" : "",
+            message: "Item này không có link preview unityassetcollection.",
+            primaryLabel: fallbackUrl ? "Mở Unity Asset Store" : "",
             primaryUrl: fallbackUrl || ""
         }));
-        previewHintEl.textContent = "Khong co link unityassetcollection cho item nay.";
+        previewHintEl.textContent = "Không có link unityassetcollection cho item này.";
         setOpenExternalLink(fallbackUrl || "");
     }
 
@@ -678,7 +772,7 @@ async function copyText(value) {
 
 function renderList() {
     if (!state.filtered.length) {
-        packageListEl.innerHTML = `<div class="empty">Khong co pack khop bo loc.</div>`;
+        packageListEl.innerHTML = `<div class="empty">Không có pack khớp bộ lọc.</div>`;
         return;
     }
 
@@ -694,12 +788,25 @@ function renderList() {
                 ? `<img class="package-thumbnail" src="${escapeHtml(thumbnailSrc)}" alt="${escapeHtml(item.name)}" loading="lazy" />`
                 : `<div class="package-thumbnail placeholder">No Image</div>`;
 
+            const sourceTypeBadge = item.sourceType 
+                ? `<span class="badge badge-${item.sourceType}">${sourceLabel(item.sourceType)}</span>` 
+                : "";
+            const sourceCountBadge = item.sourceCount > 1 
+                ? `<span class="badge badge-count">${item.sourceCount} items</span>` 
+                : "";
+
             return `
                 <article class="package-card ${isActive}" data-idx="${index}">
                     <div class="thumbnail-container">
                         ${imageHtml}
+                        <div class="card-badges">
+                            ${sourceTypeBadge}
+                        </div>
                     </div>
-                    <h3 class="package-title" title="${escapeHtml(item.name || "(no name)")}">${escapeHtml(item.name || "(no name)")}</h3>
+                    <div class="card-info">
+                        <h3 class="package-title" title="${escapeHtml(item.name || "(no name)")}">${escapeHtml(item.name || "(no name)")}</h3>
+                        ${sourceCountBadge}
+                    </div>
                 </article>
             `;
         })
@@ -762,13 +869,16 @@ function setupPreviewSourceTabs() {
         if (selectedItem) {
             setPreview(selectedItem, { rerender: false });
         } else {
-            clearPreview("Chon package de xem preview.");
+            clearPreview("Chọn package để xem preview.");
         }
     });
 }
 
 searchInputEl.addEventListener("input", applyFilter);
 reloadBtnEl.addEventListener("click", loadData);
+if (openFileLocationEl) {
+    openFileLocationEl.addEventListener("click", handleOpenFileLocation);
+}
 setupPreviewSourceTabs();
 
 loadData();

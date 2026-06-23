@@ -187,28 +187,55 @@ function Search-UnityAssetCollection {
 
         try {
             $html = (Invoke-WebRequest -Uri $searchUrl -UseBasicParsing -TimeoutSec 30).Content
-            $pattern = "<h2 class=`"title front-view-title`"><a href=`"([^`"]+)`"[^>]*>(.*?)</a></h2>"
-            $matches = [regex]::Matches($html, $pattern)
+            
+            $articlePattern = "(?s)<article class=`"latestPost excerpt\s*[^`"]*`">(.*?)</article>"
+            $articles = [regex]::Matches($html, $articlePattern)
 
-            foreach ($item in $matches) {
-                $rawTitle = $item.Groups[2].Value
+            foreach ($article in $articles) {
+                $articleHtml = $article.Groups[1].Value
+                
+                $titleMatch = [regex]::Match($articleHtml, "<h2 class=`"title front-view-title`"><a href=`"([^`"]+)`"[^>]*>(.*?)</a></h2>")
+                if (-not $titleMatch.Success) {
+                    continue
+                }
+
+                $url = $titleMatch.Groups[1].Value.Trim()
+                if ([string]::IsNullOrWhiteSpace($url) -or -not $url.StartsWith("https://unityassetcollection.com/")) {
+                    continue
+                }
+
+                $rawTitle = $titleMatch.Groups[2].Value
                 $titleNoTags = $rawTitle -replace "<[^>]+>", ""
                 $decodedTitle = [System.Net.WebUtility]::HtmlDecode($titleNoTags)
                 $title = ($decodedTitle -replace "\s+", " ").Trim()
                 $title = [regex]::Replace($title, "[^\u0000-\u007F]+", " ")
                 $title = ($title -replace "\s+", " ").Trim()
-                $url = $item.Groups[1].Value.Trim()
 
-                if ([string]::IsNullOrWhiteSpace($url)) {
-                    continue
-                }
-                if (-not $url.StartsWith("https://unityassetcollection.com/")) {
-                    continue
+                $thumbnail = ""
+                $imgMatch = [regex]::Match($articleHtml, "(?s)<div class=`"featured-thumbnail\s*[^`"]*`"><img\s+([^>]*?)>")
+                if ($imgMatch.Success) {
+                    $imgAttributes = $imgMatch.Groups[1].Value
+                    
+                    $urlMatch = [regex]::Match($imgAttributes, "data-lazy-src=`"([^`"]+)`"")
+                    if (-not $urlMatch.Success) {
+                        $urlMatch = [regex]::Match($imgAttributes, "data-src=`"([^`"]+)`"")
+                    }
+                    if (-not $urlMatch.Success) {
+                        $urlMatch = [regex]::Match($imgAttributes, "src=`"([^`"]+)`"")
+                    }
+                    
+                    if ($urlMatch.Success) {
+                        $tempUrl = $urlMatch.Groups[1].Value.Trim()
+                        if ($tempUrl -match "^https?://") {
+                            $thumbnail = $tempUrl
+                        }
+                    }
                 }
 
                 $parsed.Add([pscustomobject]@{
-                        title = $title
-                        url   = $url
+                        title     = $title
+                        url       = $url
+                        thumbnail = $thumbnail
                     })
             }
         }
@@ -223,9 +250,10 @@ function Search-UnityAssetCollection {
     $results = New-Object System.Collections.Generic.List[object]
     foreach ($item in $cachedResults) {
         $results.Add([pscustomobject]@{
-                title = $item.title
-                url   = $item.url
-                query = $Query
+                title     = $item.title
+                url       = $item.url
+                query     = $Query
+                thumbnail = $item.thumbnail
             })
     }
 
@@ -999,11 +1027,12 @@ function Build-LibraryData {
             foreach ($candidate in $candidates) {
                 $score = Score-Candidate -Candidate $candidate -CoreTokens $coreTokens -HintTokens $hintTokens -RequiredNumbers $requiredNumbers
                 $row = [pscustomobject]@{
-                    title = $candidate.title
-                    url   = $candidate.url
-                    query = $candidate.query
-                    score = $score
-                    source = "unityassetcollection"
+                    title     = $candidate.title
+                    url       = $candidate.url
+                    query     = $candidate.query
+                    score     = $score
+                    source    = "unityassetcollection"
+                    thumbnail = $candidate.thumbnail
                 }
 
                 if ($unityCandidateByUrl.ContainsKey($candidate.url)) {
