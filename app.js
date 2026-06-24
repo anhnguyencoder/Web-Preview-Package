@@ -8,7 +8,7 @@ const previewFrameEl = document.getElementById("previewFrame");
 const previewHintEl = document.getElementById("previewHint");
 const openExternalLinkEl = document.getElementById("openExternalLink");
 const openFileLocationEl = document.getElementById("openFileLocation");
-const libraryTabsEl = document.getElementById("libraryTabs");
+const folderTreeEl = document.getElementById("folderTree");
 const listTitleEl = document.getElementById("listTitle");
 const previewSourceTabsEl = document.getElementById("previewSourceTabs");
 const browserUrlTextEl = document.getElementById("browserUrlText");
@@ -19,7 +19,8 @@ const state = {
     activeLibraryId: "",
     filtered: [],
     selectedByLibrary: {},
-    previewSource: "unitycollection"
+    previewSource: "unitycollection",
+    collapsedFolders: {}
 };
 
 function escapeHtml(text) {
@@ -483,6 +484,7 @@ function normalizeLibraries(data) {
             id: String(library.id || `lib_${idx}`),
             label: String(library.label || `Library ${idx + 1}`),
             root: String(library.root || ""),
+            parentFolder: library.parentFolder ? String(library.parentFolder) : null,
             packages: Array.isArray(library.packages) ? library.packages : [],
             totalPackages: Number.isFinite(library.totalPackages) ? library.totalPackages : (Array.isArray(library.packages) ? library.packages.length : 0)
         }));
@@ -493,6 +495,7 @@ function normalizeLibraries(data) {
         id: "package",
         label: "Unity Package",
         root: String(data?.assetsRoot || ""),
+        parentFolder: "Asset_Unity_3D",
         packages: fallbackPackages,
         totalPackages: fallbackPackages.length
     }];
@@ -502,37 +505,139 @@ function getActiveLibrary() {
     if (!state.libraries.length) {
         return null;
     }
-    return state.libraries.find((lib) => lib.id === state.activeLibraryId) || state.libraries[0];
+    const exactMatch = state.libraries.find((lib) => lib.id === state.activeLibraryId);
+    if (exactMatch) {
+        return exactMatch;
+    }
+    const isParent = state.libraries.some((lib) => lib.parentFolder === state.activeLibraryId);
+    if (isParent) {
+        const childLibs = state.libraries.filter((lib) => lib.parentFolder === state.activeLibraryId);
+        const combinedPackages = [];
+        childLibs.forEach((lib) => {
+            combinedPackages.push(...(lib.packages || []));
+        });
+        return {
+            id: state.activeLibraryId,
+            label: state.activeLibraryId,
+            root: "",
+            parentFolder: null,
+            packages: combinedPackages,
+            totalPackages: combinedPackages.length,
+            isVirtual: true
+        };
+    }
+    return state.libraries[0];
 }
 
-function renderTabs() {
-    if (!libraryTabsEl) {
+function renderTree() {
+    if (!folderTreeEl) {
         return;
     }
 
     if (!state.libraries.length) {
-        libraryTabsEl.innerHTML = "";
+        folderTreeEl.innerHTML = "";
         return;
     }
 
-    libraryTabsEl.innerHTML = state.libraries
-        .map((library) => {
-            const isActive = library.id === state.activeLibraryId;
-            const eyeIcon = isActive 
-                ? `<svg class="icon-eye" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>` 
-                : "";
-            return `<button class="tab-btn ${isActive ? "active" : ""}" type="button" data-lib="${escapeHtml(library.id)}">${eyeIcon}${escapeHtml(library.label)}</button>`;
-        })
-        .join("");
+    const parents = new Set();
+    const childLibraries = [];
+    const standaloneLibraries = [];
 
-    libraryTabsEl.querySelectorAll(".tab-btn").forEach((buttonEl) => {
-        buttonEl.addEventListener("click", () => {
-            const targetId = buttonEl.getAttribute("data-lib") || "";
-            if (!targetId || targetId === state.activeLibraryId) {
-                return;
+    state.libraries.forEach((lib) => {
+        if (lib.parentFolder) {
+            parents.add(lib.parentFolder);
+            childLibraries.push(lib);
+        } else {
+            standaloneLibraries.push(lib);
+        }
+    });
+
+    let treeHtml = "";
+
+    parents.forEach((parentName) => {
+        const children = childLibraries.filter((lib) => lib.parentFolder === parentName);
+        const totalCount = children.reduce((sum, lib) => sum + lib.totalPackages, 0);
+        const isCollapsed = state.collapsedFolders[parentName] === true;
+        const isActive = state.activeLibraryId === parentName;
+
+        const caretIcon = `
+            <svg class="tree-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>`;
+
+        const folderIcon = `
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+            </svg>`;
+
+        let childrenHtml = "";
+        children.forEach((lib) => {
+            const isChildActive = state.activeLibraryId === lib.id;
+            childrenHtml += `
+                <div class="tree-node" data-id="${escapeHtml(lib.id)}">
+                    <div class="tree-row ${isChildActive ? "active" : ""}" data-id="${escapeHtml(lib.id)}">
+                        <span class="tree-icon">${folderIcon}</span>
+                        <span class="tree-label">${escapeHtml(lib.label)}</span>
+                        <span class="tree-count">${lib.totalPackages}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        treeHtml += `
+            <div class="tree-node ${isCollapsed ? "collapsed" : ""}" data-parent-id="${escapeHtml(parentName)}">
+                <div class="tree-row ${isActive ? "active" : ""}" data-id="${escapeHtml(parentName)}">
+                    <span class="tree-caret-container" data-toggle="${escapeHtml(parentName)}">
+                        ${caretIcon}
+                    </span>
+                    <span class="tree-icon">${folderIcon}</span>
+                    <span class="tree-label">${escapeHtml(parentName)}</span>
+                    <span class="tree-count">${totalCount}</span>
+                </div>
+                <div class="tree-children">
+                    ${childrenHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    standaloneLibraries.forEach((lib) => {
+        const isActive = state.activeLibraryId === lib.id;
+        const folderIcon = `
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+            </svg>`;
+
+        treeHtml += `
+            <div class="tree-node" data-id="${escapeHtml(lib.id)}">
+                <div class="tree-row ${isActive ? "active" : ""}" data-id="${escapeHtml(lib.id)}">
+                    <span class="tree-caret" style="visibility: hidden;"></span>
+                    <span class="tree-icon">${folderIcon}</span>
+                    <span class="tree-label">${escapeHtml(lib.label)}</span>
+                    <span class="tree-count">${lib.totalPackages}</span>
+                </div>
+            </div>
+        `;
+    });
+
+    folderTreeEl.innerHTML = treeHtml;
+
+    folderTreeEl.querySelectorAll(".tree-caret-container").forEach((el) => {
+        el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const toggleId = el.getAttribute("data-toggle");
+            state.collapsedFolders[toggleId] = !state.collapsedFolders[toggleId];
+            renderTree();
+        });
+    });
+
+    folderTreeEl.querySelectorAll(".tree-row").forEach((rowEl) => {
+        rowEl.addEventListener("click", (e) => {
+            const targetId = rowEl.getAttribute("data-id");
+            if (targetId && targetId !== state.activeLibraryId) {
+                state.activeLibraryId = targetId;
+                applyFilter();
             }
-            state.activeLibraryId = targetId;
-            applyFilter();
         });
     });
 }
@@ -580,8 +685,6 @@ function updateMetaInfo() {
     const rootInfo = active.root ? `<div class="meta-line"><strong>Thư mục gốc:</strong> ${escapeHtml(active.root)}</div>` : "";
 
     metaInfoEl.innerHTML = `
-        <div class="meta-line"><strong>Đã nạp:</strong> ${total} item (${counts})</div>
-        <div class="meta-line"><strong>Đang xem:</strong> ${active.label} (${active.totalPackages} item)</div>
         ${rootInfo}
         <div class="meta-line"><strong>Cập nhật lúc:</strong> ${formatDate(state.generatedAt)} (ICT)</div>
     `;
@@ -625,11 +728,12 @@ async function loadData() {
         state.generatedAt = data.generatedAt ?? "";
         state.libraries = normalizeLibraries(data);
 
-        const defaultLibraryId = String(data.defaultLibraryId || "");
-        const canUseDefault = state.libraries.some((library) => library.id === defaultLibraryId);
-        state.activeLibraryId = canUseDefault ? defaultLibraryId : (state.libraries[0]?.id || "");
+        const defaultLibraryId = String(data.defaultLibraryId || "Asset_Unity_3D");
+        const isValidParent = state.libraries.some((library) => library.parentFolder === defaultLibraryId);
+        const isValidLib = state.libraries.some((library) => library.id === defaultLibraryId);
+        state.activeLibraryId = (isValidParent || isValidLib) ? defaultLibraryId : (state.libraries[0]?.id || "");
 
-        renderTabs();
+        renderTree();
         renderPreviewSourceTabs();
         applyFilter();
         updateMetaInfo();
@@ -637,8 +741,8 @@ async function loadData() {
         metaInfoEl.innerHTML = `<div>Không đọc được ${DATA_URL}. Chạy generate-links.ps1 rồi tải lại.</div>`;
         packageListEl.innerHTML = `<div class="empty">${escapeHtml(String(error.message || error))}</div>`;
         clearPreview("Không tải được dữ liệu preview.");
-        if (libraryTabsEl) {
-            libraryTabsEl.innerHTML = "";
+        if (folderTreeEl) {
+            folderTreeEl.innerHTML = "";
         }
     }
 }
@@ -647,7 +751,7 @@ function applyFilter() {
     const activeLibrary = getActiveLibrary();
     if (!activeLibrary) {
         state.filtered = [];
-        renderTabs();
+        renderTree();
         renderPreviewSourceTabs();
         renderList();
         clearPreview("Không có dữ liệu để hiển thị.");
@@ -674,10 +778,10 @@ function applyFilter() {
     const selectedKey = state.selectedByLibrary[activeLibrary.id] || "";
 
     if (!state.filtered.length) {
-        renderTabs();
+        renderTree();
         renderPreviewSourceTabs();
         renderList();
-        clearPreview("Không có pack khớp bộ lọc trong tab này.");
+        clearPreview("Không có pack khớp bộ lọc trong thư mục này.");
         return;
     }
 
@@ -686,7 +790,7 @@ function applyFilter() {
         setPreview(state.filtered[0], { rerender: false });
     }
 
-    renderTabs();
+    renderTree();
     renderPreviewSourceTabs();
     renderList();
     updateMetaInfo();
@@ -754,7 +858,7 @@ function setPreview(item, options = {}) {
 
     if (rerender) {
         renderList();
-        renderTabs();
+        renderTree();
         renderPreviewSourceTabs();
     } else {
         if (packageListEl) {
@@ -808,6 +912,9 @@ function renderList() {
             const sourceCountBadge = item.sourceCount > 1 
                 ? `<span class="badge badge-count">${item.sourceCount} items</span>` 
                 : "";
+            const libraryBadge = item.libraryLabel 
+                ? `<span class="badge-library">${escapeHtml(item.libraryLabel)}</span>` 
+                : "";
 
             return `
                 <article class="package-card ${isActive}" data-idx="${index}">
@@ -819,7 +926,10 @@ function renderList() {
                     </div>
                     <div class="card-info">
                         <h3 class="package-title" title="${escapeHtml(item.name || "(no name)")}">${escapeHtml(item.name || "(no name)")}</h3>
-                        ${sourceCountBadge}
+                        <div class="card-badges-row">
+                            ${libraryBadge}
+                            ${sourceCountBadge}
+                        </div>
                     </div>
                 </article>
             `;

@@ -937,8 +937,10 @@ function Build-LibraryData {
         [System.Collections.Generic.HashSet[string]]$ArchiveExtensionSet,
         [int]$MaxResultsPerQuery,
         [int]$QueryLimitPerItem,
-        [int]$AssetStoreQueryLimitPerItem
+        [int]$AssetStoreQueryLimitPerItem,
+        [string]$ParentFolder = $null
     )
+
 
     if (-not (Test-Path -LiteralPath $RootPath)) {
         Write-Warning "Root not found for library '$Label': $RootPath"
@@ -1202,6 +1204,7 @@ function Build-LibraryData {
         $packageRows.Add([pscustomobject]@{
                 name               = $rawName
                 displayName        = $displayName
+                libraryLabel       = $Label
                 sourceType         = $sourceType
                 sourceCount        = $sources.Count
                 sourceNames        = @($allBaseNames)
@@ -1248,6 +1251,7 @@ function Build-LibraryData {
     return [pscustomobject]@{
         id             = $LibraryId
         label          = $Label
+        parentFolder   = $ParentFolder
         root           = $RootPath
         totalPackages  = $packageRows.Count
         totalEntries   = $allSources.Count
@@ -1268,20 +1272,46 @@ $resolvedPluginRoot = Resolve-OutputPath -Path $PluginRoot
 
 $archiveExtensionSet = New-ArchiveExtensionSet -Extensions $ArchiveExtensions
 
-$packageLibrary = Build-LibraryData -LibraryId "package" -Label "Unity Package" -RootPath $resolvedPackageRoot -ExcludeNames $Exclude -ArchiveExtensionSet $archiveExtensionSet -MaxResultsPerQuery $MaxResultsPerQuery -QueryLimitPerItem $QueryLimitPerItem -AssetStoreQueryLimitPerItem $AssetStoreQueryLimitPerItem
-$pluginLibrary = Build-LibraryData -LibraryId "plugin" -Label "Unity Plugin" -RootPath $resolvedPluginRoot -ExcludeNames $Exclude -ArchiveExtensionSet $archiveExtensionSet -MaxResultsPerQuery $MaxResultsPerQuery -QueryLimitPerItem $QueryLimitPerItem -AssetStoreQueryLimitPerItem $AssetStoreQueryLimitPerItem
+$libraries = New-Object System.Collections.Generic.List[object]
+$packageRootParent = Split-Path -Path $resolvedPackageRoot -Parent
+$parentName = Split-Path -Path $packageRootParent -Leaf
+if ([string]::IsNullOrWhiteSpace($parentName)) {
+    $parentName = "Asset_Unity_3D"
+}
 
-$libraries = @($packageLibrary, $pluginLibrary)
+if (Test-Path -LiteralPath $packageRootParent) {
+    Write-Host "Scanning parent folder: $packageRootParent"
+    # Find all subdirectories of the parent directory
+    $subdirs = Get-ChildItem -LiteralPath $packageRootParent -Directory | Where-Object { $_.Name -notin $Exclude }
+    foreach ($dir in $subdirs) {
+        $libId = "asset_unity_3d/" + $dir.Name.ToLowerInvariant()
+        $libLabel = $dir.Name
+        Write-Host "Scanning subfolder: $($dir.Name) at $($dir.FullName)"
+        $libData = Build-LibraryData -LibraryId $libId -Label $libLabel -RootPath $dir.FullName -ExcludeNames $Exclude -ArchiveExtensionSet $archiveExtensionSet -MaxResultsPerQuery $MaxResultsPerQuery -QueryLimitPerItem $QueryLimitPerItem -AssetStoreQueryLimitPerItem $AssetStoreQueryLimitPerItem -ParentFolder $parentName
+        $libraries.Add($libData)
+    }
+}
+else {
+    Write-Warning "Parent path not found: $packageRootParent. Scanning PackageRoot directly as Assets."
+    $libData = Build-LibraryData -LibraryId "asset_unity_3d/assets" -Label "Assets" -RootPath $resolvedPackageRoot -ExcludeNames $Exclude -ArchiveExtensionSet $archiveExtensionSet -MaxResultsPerQuery $MaxResultsPerQuery -QueryLimitPerItem $QueryLimitPerItem -AssetStoreQueryLimitPerItem $AssetStoreQueryLimitPerItem -ParentFolder $parentName
+    $libraries.Add($libData)
+}
+
+# Scan plugin root
+Write-Host "Scanning plugin folder: $resolvedPluginRoot"
+$pluginLibrary = Build-LibraryData -LibraryId "plugin" -Label "3. UNITY PLUGIN" -RootPath $resolvedPluginRoot -ExcludeNames $Exclude -ArchiveExtensionSet $archiveExtensionSet -MaxResultsPerQuery $MaxResultsPerQuery -QueryLimitPerItem $QueryLimitPerItem -AssetStoreQueryLimitPerItem $AssetStoreQueryLimitPerItem -ParentFolder $null
+$libraries.Add($pluginLibrary)
+
 $totalPackages = ($libraries | Measure-Object -Property totalPackages -Sum).Sum
 
 $data = [pscustomobject]@{
     generatedAt       = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
-    defaultLibraryId  = "package"
+    defaultLibraryId  = $parentName
     totalPackages     = $totalPackages
     libraryCount      = $libraries.Count
     libraries         = $libraries
-    assetsRoot        = $resolvedPackageRoot
-    packages          = $packageLibrary.packages
+    assetsRoot        = $packageRootParent
+    packages          = @()
 }
 
 $outputDirectory = Split-Path -Parent $resolvedOutputPath

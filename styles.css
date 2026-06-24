@@ -681,3 +681,145 @@ button:active {
         min-height: 55vh;
     }
 }
+
+/* Folder Tree component */
+.folder-tree {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.tree-node {
+    display: flex;
+    flex-direction: column;
+}
+
+.tree-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    border: 1px solid transparent;
+}
+
+.tree-row:hover {
+    color: #fff;
+    background: hsla(220, 20%, 90%, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.tree-row.active {
+    border-color: hsla(28, 100%, 62%, 0.35);
+    background: hsla(28, 100%, 62%, 0.12);
+    color: var(--accent);
+    font-weight: 600;
+    box-shadow: 0 0 12px hsla(28, 100%, 62%, 0.1);
+}
+
+.tree-caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: transform 0.2s ease;
+}
+
+.tree-node.collapsed > .tree-row .tree-caret {
+    transform: rotate(-90deg);
+}
+
+.tree-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--accent-2);
+    flex-shrink: 0;
+}
+
+.tree-icon svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+.tree-row.active .tree-icon {
+    color: var(--accent);
+}
+
+.tree-label {
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tree-count {
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--muted);
+    padding: 2px 6px;
+    border-radius: 99px;
+    font-family: inherit;
+}
+
+.tree-children {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-left: 18px;
+    border-left: 1.5px dashed rgba(255, 255, 255, 0.08);
+    padding-left: 10px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+
+.tree-node.collapsed > .tree-children {
+    display: none;
+}
+
+/* Badge and Meta layout on Card */
+.card-badges-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.badge-library {
+    font-family: 'JetBrains Mono', monospace;
+    background: hsla(162, 79%, 56%, 0.12);
+    border: 1px solid hsla(162, 79%, 56%, 0.25);
+    color: hsl(162, 79%, 85%);
+    font-size: 8.5px;
+    font-weight: 500;
+    padding: 1.5px 4.5px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.tree-row.active .tree-count {
+    border-color: hsla(28, 100%, 62%, 0.3);
+    color: var(--accent);
+}
+
