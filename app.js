@@ -912,9 +912,6 @@ function renderList() {
             const sourceCountBadge = item.sourceCount > 1 
                 ? `<span class="badge badge-count">${item.sourceCount} items</span>` 
                 : "";
-            const libraryBadge = item.libraryLabel 
-                ? `<span class="badge-library">${escapeHtml(item.libraryLabel)}</span>` 
-                : "";
 
             return `
                 <article class="package-card ${isActive}" data-idx="${index}">
@@ -926,10 +923,7 @@ function renderList() {
                     </div>
                     <div class="card-info">
                         <h3 class="package-title" title="${escapeHtml(item.name || "(no name)")}">${escapeHtml(item.name || "(no name)")}</h3>
-                        <div class="card-badges-row">
-                            ${libraryBadge}
-                            ${sourceCountBadge}
-                        </div>
+                        ${sourceCountBadge}
                     </div>
                 </article>
             `;
